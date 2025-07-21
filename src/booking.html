@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Book a Pickup</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-5">
+    <h2 class="text-success text-center">Book a Waste Pickup</h2>
+    <form id="bookingForm">
+        <div class="mb-3">
+            <label for="name" class="form-label">Your Name</label>
+            <input type="text" class="form-control" id="name" required>
+        </div>
+        <div class="mb-3">
+            <label for="email" class="form-label">Your Email</label>
+            <input type="email" class="form-control" id="email" required>
+        </div>
+        <div class="mb-3">
+            <label for="address" class="form-label">Pickup Address</label>
+            <textarea class="form-control" id="address" rows="2" required></textarea>
+        </div>
+        <div class="mb-3">
+            <label for="date" class="form-label">Pickup Date</label>
+            <input type="date" class="form-control" id="date" required>
+        </div>
+        <div class="mb-3">
+            <label for="time" class="form-label">Pickup Time</label>
+            <input type="time" class="form-control" id="time" required>
+        </div>
+        <div class="mb-3">
+            <label for="photo" class="form-label">Upload Waste Photo</label>
+            <input type="file" class="form-control" id="photo" accept="image/*" capture="environment" required>
+        </div>
+        <button type="submit" class="btn btn-success">Submit Booking</button>
+    </form>
+
+    <div id="successMessage" class="alert alert-success mt-3 d-none">
+        Booking submitted successfully!
+    </div>
+</div>
+
+<script>
+    document.getElementById("bookingForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const name = document.getElementById("name").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const address = document.getElementById("address").value.trim();
+      const date = document.getElementById("date").value;
+      const time = document.getElementById("time").value;
+      const photoInput = document.getElementById("photo");
+      const file = photoInput.files[0];
+
+      if (!file) {
+        alert("Please upload a photo.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = function () {
+        const imageData = reader.result;
+
+        const newOrder = { name, email, address, date, time, image: imageData };
+
+        const orders = JSON.parse(localStorage.getItem("scheduledOrders")) || [];
+        orders.push(newOrder);
+        localStorage.setItem("scheduledOrders", JSON.stringify(orders));
+
+        document.getElementById("bookingForm").reset();
+        document.getElementById("successMessage").classList.remove("d-none");
+      };
+
+      reader.readAsDataURL(file); // Convert image to base64
+    });
+</script>
+</body>
+</html>

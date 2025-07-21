@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pricing - Eco Collect</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container mt-5">
+  <h2 class="text-success text-center mb-4">Eco Collect Pricing</h2>
+  <div class="row mt-4" id="pricingItems"></div>
+</div>
+
+<script>
+  function loadItems() {
+    const container = document.getElementById("pricingItems");
+    const items = JSON.parse(localStorage.getItem("items") || "[]");
+    container.innerHTML = "";
+
+    items.forEach(item => {
+      const col = document.createElement("div");
+      col.className = "col-md-4 mb-4";
+
+      col.innerHTML = `
+        <div class="card">
+          <img src="${item.image}" class="card-img-top" style="height:200px; object-fit:cover;">
+          <div class="card-body">
+            <h5 class="card-title">${item.name}</h5>
+            <p>${item.desc}</p>
+            <p><strong>₹${item.price}</strong></p>
+          </div>
+        </div>
+      `;
+      container.appendChild(col);
+    });
+  }
+
+  loadItems();
+</script>
+</body>
+</html>
