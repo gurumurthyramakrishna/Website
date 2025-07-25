@@ -8,7 +8,7 @@
 <body>
 <div class="container mt-5">
   <h2 class="text-success mb-4">Sign Up for Eco Collect</h2>
-  <form>
+  <form id="signupForm">
     <div class="mb-3">
       <label for="name" class="form-label">Full Name</label>
       <input type="text" class="form-control" id="name" required>
@@ -23,6 +23,53 @@
     </div>
     <button type="submit" class="btn btn-success">Sign Up</button>
   </form>
+  
+  <div id="successMessage" class="alert alert-success mt-3 d-none">
+    Registration successful! You can now <a href="index.html">go back to home</a>.
+  </div>
+  
+  <div id="errorMessage" class="alert alert-danger mt-3 d-none">
+    <span id="errorText"></span>
+  </div>
+</div>
+
+<script>
+  document.getElementById("signupForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const name = document.getElementById("name").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    try {
+      const response = await fetch('/api/users/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name, email, password })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        document.getElementById("signupForm").reset();
+        document.getElementById("successMessage").classList.remove("d-none");
+        document.getElementById("errorMessage").classList.add("d-none");
+      } else {
+        const errorText = result.error || 'Registration failed';
+        document.getElementById("errorText").textContent = errorText;
+        document.getElementById("errorMessage").classList.remove("d-none");
+        document.getElementById("successMessage").classList.add("d-none");
+      }
+    } catch (error) {
+      console.error('Error during registration:', error);
+      document.getElementById("errorText").textContent = 'Registration failed. Please try again.';
+      document.getElementById("errorMessage").classList.remove("d-none");
+      document.getElementById("successMessage").classList.add("d-none");
+    }
+  });
+</script>
 </div>
 </body>
 </html>
