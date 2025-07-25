@@ -12,29 +12,49 @@
 </div>
 
 <script>
-  function loadItems() {
-    const container = document.getElementById("pricingItems");
-    const items = JSON.parse(localStorage.getItem("items") || "[]");
-    container.innerHTML = "";
+  async function loadItems() {
+    try {
+      const response = await fetch('/api/pricing');
+      const result = await response.json();
+      
+      if (response.ok) {
+        const container = document.getElementById("pricingItems");
+        const items = result.items;
+        container.innerHTML = "";
 
-    items.forEach(item => {
-      const col = document.createElement("div");
-      col.className = "col-md-4 mb-4";
+        if (items.length === 0) {
+          container.innerHTML = '<div class="col-12 text-center"><p class="text-muted">No pricing items available yet.</p></div>';
+          return;
+        }
 
-      col.innerHTML = `
-        <div class="card">
-          <img src="${item.image}" class="card-img-top" style="height:200px; object-fit:cover;">
-          <div class="card-body">
-            <h5 class="card-title">${item.name}</h5>
-            <p>${item.desc}</p>
-            <p><strong>₹${item.price}</strong></p>
-          </div>
-        </div>
-      `;
-      container.appendChild(col);
-    });
+        items.forEach(item => {
+          const col = document.createElement("div");
+          col.className = "col-md-4 mb-4";
+
+          col.innerHTML = `
+            <div class="card h-100">
+              <div class="card-body">
+                <h5 class="card-title text-success">${item.name}</h5>
+                <p class="card-text">${item.description}</p>
+                <p class="card-text"><strong class="text-success">₹${item.price} per kg</strong></p>
+              </div>
+            </div>
+          `;
+          container.appendChild(col);
+        });
+      } else {
+        console.error('Failed to load pricing items:', result.error);
+        document.getElementById("pricingItems").innerHTML = 
+          '<div class="col-12 text-center"><p class="text-danger">Failed to load pricing items.</p></div>';
+      }
+    } catch (error) {
+      console.error('Error loading pricing items:', error);
+      document.getElementById("pricingItems").innerHTML = 
+        '<div class="col-12 text-center"><p class="text-danger">Error loading pricing items.</p></div>';
+    }
   }
 
+  // Load items when page loads
   loadItems();
 </script>
 </body>
