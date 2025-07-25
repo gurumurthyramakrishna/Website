@@ -31,6 +31,7 @@
           <li class="nav-item"><a class="nav-link text-white" href="#pricing">Pricing</a></li>
           <li class="nav-item"><a class="nav-link text-white" href="#orders">Orders</a></li>
           <li class="nav-item"><a class="nav-link text-white" href="#messages">Messages</a></li>
+          <li class="nav-item"><button class="btn btn-outline-light" onclick="logout()">Logout</button></li>
         </ul>
       </div>
     </nav>
@@ -48,9 +49,7 @@
         <div class="col-md-2">
           <input type="number" id="price" class="form-control" placeholder="Price ₹" required />
         </div>
-        <div class="col-md-2">
-          <input type="text" id="image" class="form-control" placeholder="Image URL" required />
-        </div>
+
         <div class="col-12 text-end">
           <button type="submit" class="btn btn-success">Add Item</button>
         </div>
@@ -95,129 +94,266 @@
 </div>
 
 <script>
-  const correctPassword = "admin123";
+  let adminToken = localStorage.getItem('adminToken');
+  let items = [];
 
-  function checkPassword() {
-    const input = document.getElementById("adminPassword").value;
-    if (input === correctPassword) {
-      document.getElementById("loginForm").style.display = "none";
-      document.getElementById("adminPanel").style.display = "block";
-      renderItems();
-      loadOrders();
-      loadMessages();
-    } else {
-      document.getElementById("loginError").innerText = "Incorrect password!";
+  async function checkPassword() {
+    const password = document.getElementById("adminPassword").value;
+    
+    try {
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ password })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        adminToken = result.token;
+        localStorage.setItem('adminToken', adminToken);
+        document.getElementById("loginForm").style.display = "none";
+        document.getElementById("adminPanel").style.display = "block";
+        document.getElementById("loginError").innerText = "";
+        
+        // Load all data
+        await loadPricingItems();
+        await loadOrders();
+        await loadMessages();
+      } else {
+        document.getElementById("loginError").innerText = result.error || "Login failed!";
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      document.getElementById("loginError").innerText = "Login failed. Please try again.";
     }
   }
 
-  // Pricing
-  let items = JSON.parse(localStorage.getItem("items") || "[]");
+  // Check if already logged in
+  if (adminToken) {
+    document.getElementById("loginForm").style.display = "none";
+    document.getElementById("adminPanel").style.display = "block";
+    loadPricingItems();
+    loadOrders();
+    loadMessages();
+  }
 
-  function saveItems() {
-    localStorage.setItem("items", JSON.stringify(items));
-    renderItems();
+  // API Helper function
+  async function apiCall(url, options = {}) {
+    const defaultOptions = {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${adminToken}`
+      }
+    };
+
+    const mergedOptions = {
+      ...defaultOptions,
+      ...options,
+      headers: {
+        ...defaultOptions.headers,
+        ...options.headers
+      }
+    };
+
+    const response = await fetch(url, mergedOptions);
+    
+    if (response.status === 401) {
+      // Token expired, redirect to login
+      localStorage.removeItem('adminToken');
+      adminToken = null;
+      document.getElementById("loginForm").style.display = "block";
+      document.getElementById("adminPanel").style.display = "none";
+      throw new Error('Session expired');
+    }
+
+    return response;
+  }
+
+  // Pricing Management
+  async function loadPricingItems() {
+    try {
+      const response = await fetch('/api/pricing');
+      const result = await response.json();
+      
+      if (response.ok) {
+        items = result.items;
+        renderItems();
+      } else {
+        console.error('Failed to load pricing items:', result.error);
+      }
+    } catch (error) {
+      console.error('Error loading pricing items:', error);
+    }
   }
 
   function renderItems() {
     const container = document.getElementById("itemsList");
     container.innerHTML = "";
-    items.forEach((item, index) => {
+    
+    items.forEach((item) => {
       const col = document.createElement("div");
       col.className = "col-md-4 mb-4";
       col.innerHTML = `
         <div class="card h-100">
-          <img src="${item.image}" class="card-img-top" style="height:200px; object-fit:cover;">
           <div class="card-body">
             <h5 class="card-title">${item.name}</h5>
-            <p>${item.desc}</p>
-            <p><strong>₹${item.price}</strong></p>
-            <button class="btn btn-danger btn-sm" onclick="deleteItem(${index})">Delete</button>
+            <p class="card-text">${item.description}</p>
+            <p class="card-text"><strong>₹${item.price}</strong></p>
+            <button class="btn btn-danger btn-sm" onclick="deleteItem(${item.id})">Delete</button>
           </div>
         </div>`;
       container.appendChild(col);
     });
   }
 
-  function deleteItem(index) {
-    items.splice(index, 1);
-    saveItems();
+  async function deleteItem(itemId) {
+    try {
+      const response = await apiCall(`/api/pricing/${itemId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        await loadPricingItems(); // Reload items
+      } else {
+        const result = await response.json();
+        alert('Failed to delete item: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      alert('Failed to delete item');
+    }
   }
 
-  document.getElementById("itemForm").addEventListener("submit", function (e) {
+  document.getElementById("itemForm").addEventListener("submit", async function (e) {
     e.preventDefault();
+    
     const name = document.getElementById("name").value.trim();
-    const desc = document.getElementById("desc").value.trim();
-    const price = document.getElementById("price").value.trim();
-    const image = document.getElementById("image").value.trim();
+    const description = document.getElementById("desc").value.trim();
+    const price = parseFloat(document.getElementById("price").value.trim());
 
-    if (name && desc && price && image) {
-      items.push({ name, desc, price, image });
-      saveItems();
-      this.reset();
+    if (name && description && price) {
+      try {
+        const response = await apiCall('/api/pricing', {
+          method: 'POST',
+          body: JSON.stringify({ name, description, price })
+        });
+
+        if (response.ok) {
+          await loadPricingItems(); // Reload items
+          this.reset();
+        } else {
+          const result = await response.json();
+          alert('Failed to add item: ' + (result.error || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error adding item:', error);
+        alert('Failed to add item');
+      }
     }
   });
 
-  // Orders
-  function loadOrders() {
-    const orders = JSON.parse(localStorage.getItem("scheduledOrders")) || [];
-    const tableBody = document.getElementById("orderTableBody");
-    tableBody.innerHTML = "";
+  // Orders Management
+  async function loadOrders() {
+    try {
+      const response = await apiCall('/api/bookings');
+      const result = await response.json();
+      
+      if (response.ok) {
+        const orders = result.bookings;
+        const tableBody = document.getElementById("orderTableBody");
+        tableBody.innerHTML = "";
 
-    orders.forEach((order, index) => {
-      if (!order.status) order.status = "Pending";  // default status
-
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>${order.name}</td>
-        <td>${order.mobile || "-"}</td>
-        <td>${order.address}</td>
-        <td><img src="${order.image}" class="waste-preview" /></td>
-        <td>${order.time}</td>
-        <td>
-          <select class="form-select status-dropdown ${getStatusClass(order.status)}"
-                  onchange="updateOrderStatus(${index}, this.value)">
-            <option value="Completed" ${order.status === "Completed" ? "selected" : ""}>Completed</option>
-            <option value="Completing" ${order.status === "Completing" ? "selected" : ""}>Completing</option>
-            <option value="Pending" ${order.status === "Pending" ? "selected" : ""}>Pending</option>
-          </select>
-        </td>
-      `;
-      tableBody.appendChild(row);
-    });
-
-    // Save updated orders with status
-    localStorage.setItem("scheduledOrders", JSON.stringify(orders));
+        orders.forEach((order) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${order.name}</td>
+            <td>${order.email}</td>
+            <td>${order.address}</td>
+            <td><img src="/uploads/${order.photo}" class="waste-preview" alt="Waste photo" /></td>
+            <td>${order.date} ${order.time}</td>
+            <td>
+              <select class="form-select status-dropdown ${getStatusClass(order.status)}"
+                      onchange="updateOrderStatus(${order.id}, this.value)">
+                <option value="completed" ${order.status === "completed" ? "selected" : ""}>Completed</option>
+                <option value="completing" ${order.status === "completing" ? "selected" : ""}>Completing</option>
+                <option value="pending" ${order.status === "pending" ? "selected" : ""}>Pending</option>
+              </select>
+            </td>
+          `;
+          tableBody.appendChild(row);
+        });
+      } else {
+        console.error('Failed to load orders:', result.error);
+      }
+    } catch (error) {
+      console.error('Error loading orders:', error);
+    }
   }
 
-  function updateOrderStatus(index, newStatus) {
-    const orders = JSON.parse(localStorage.getItem("scheduledOrders")) || [];
-    orders[index].status = newStatus;
-    localStorage.setItem("scheduledOrders", JSON.stringify(orders));
-    loadOrders();  // Refresh table to apply color
+  async function updateOrderStatus(orderId, newStatus) {
+    try {
+      const response = await apiCall(`/api/bookings/${orderId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        await loadOrders(); // Reload orders
+      } else {
+        const result = await response.json();
+        alert('Failed to update status: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      alert('Failed to update status');
+    }
   }
 
   function getStatusClass(status) {
-    if (status === "Completed") return "status-completed";
-    if (status === "Completing") return "status-completing";
+    if (status === "completed") return "status-completed";
+    if (status === "completing") return "status-completing";
     return "status-pending";
   }
 
-  // Messages
-  function loadMessages() {
-    const messages = JSON.parse(localStorage.getItem("contactMessages")) || [];
-    const tableBody = document.getElementById("messageTableBody");
-    tableBody.innerHTML = "";
+  // Messages Management
+  async function loadMessages() {
+    try {
+      const response = await apiCall('/api/contact');
+      const result = await response.json();
+      
+      if (response.ok) {
+        const messages = result.messages;
+        const tableBody = document.getElementById("messageTableBody");
+        tableBody.innerHTML = "";
 
-    messages.forEach(msg => {
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>${msg.name}</td>
-        <td>${msg.email}</td>
-        <td>${msg.message}</td>
-        <td>${msg.time}</td>
-      `;
-      tableBody.appendChild(row);
-    });
+        messages.forEach(msg => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${msg.name}</td>
+            <td>${msg.email}</td>
+            <td>${msg.message}</td>
+            <td>${new Date(msg.created_at).toLocaleString()}</td>
+          `;
+          tableBody.appendChild(row);
+        });
+      } else {
+        console.error('Failed to load messages:', result.error);
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    }
+  }
+
+  // Logout function
+  function logout() {
+    localStorage.removeItem('adminToken');
+    adminToken = null;
+    document.getElementById("loginForm").style.display = "block";
+    document.getElementById("adminPanel").style.display = "none";
+    document.getElementById("adminPassword").value = "";
   }
 </script>
 </body>
