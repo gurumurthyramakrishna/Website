@@ -45,6 +45,7 @@ class Database {
       // Bookings table
       `CREATE TABLE IF NOT EXISTS bookings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
         name TEXT NOT NULL,
         email TEXT NOT NULL,
         address TEXT NOT NULL,
@@ -52,7 +53,8 @@ class Database {
         time TEXT NOT NULL,
         photo TEXT NOT NULL,
         status TEXT DEFAULT 'pending',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id)
       )`,
 
       // Contact messages table
@@ -79,6 +81,9 @@ class Database {
       await this.run(query);
     }
 
+    // Run migrations
+    await this.runMigrations();
+    
     // Create default admin user if not exists
     await this.createDefaultAdmin();
     
@@ -86,6 +91,22 @@ class Database {
     await this.createDefaultPricingItems();
     
     console.log('Database tables created/verified');
+  }
+
+  async runMigrations() {
+    try {
+      // Check if user_id column exists in bookings table
+      const tableInfo = await this.all("PRAGMA table_info(bookings)");
+      const hasUserIdColumn = tableInfo.some(column => column.name === 'user_id');
+      
+      if (!hasUserIdColumn) {
+        console.log('Adding user_id column to bookings table...');
+        await this.run('ALTER TABLE bookings ADD COLUMN user_id INTEGER');
+        console.log('Migration completed: Added user_id column to bookings table');
+      }
+    } catch (error) {
+      console.error('Migration error:', error);
+    }
   }
 
   async createDefaultAdmin() {
@@ -199,10 +220,10 @@ class Database {
 
   // Booking methods
   async createBooking(bookingData) {
-    const { name, email, address, date, time, photo, status } = bookingData;
+    const { name, email, address, date, time, photo, status, user_id } = bookingData;
     const result = await this.run(
-      'INSERT INTO bookings (name, email, address, date, time, photo, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [name, email, address, date, time, photo, status]
+      'INSERT INTO bookings (user_id, name, email, address, date, time, photo, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [user_id || null, name, email, address, date, time, photo, status]
     );
     return result.id;
   }
@@ -213,6 +234,10 @@ class Database {
 
   async getBookingById(id) {
     return await this.get('SELECT * FROM bookings WHERE id = ?', [id]);
+  }
+
+  async getBookingsByUserId(userId) {
+    return await this.all('SELECT * FROM bookings WHERE user_id = ? ORDER BY created_at DESC', [userId]);
   }
 
   async updateBookingStatus(id, status) {
