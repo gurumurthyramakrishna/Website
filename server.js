@@ -89,6 +89,51 @@ const verifyAdmin = (req, res, next) => {
   }
 };
 
+// Middleware to verify user token (optional - adds user info if token exists)
+const verifyUser = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    // No token provided, continue without user info
+    req.user = null;
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role === 'user') {
+      req.user = decoded;
+    } else {
+      req.user = null;
+    }
+    next();
+  } catch (error) {
+    // Invalid token, continue without user info
+    req.user = null;
+    next();
+  }
+};
+
+// Middleware to require user authentication
+const requireUser = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.role !== 'user') {
+      return res.status(403).json({ error: 'User access required' });
+    }
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+};
+
 // Routes
 
 // Admin login
@@ -188,7 +233,7 @@ app.post('/api/users/login', [
 });
 
 // Create booking
-app.post('/api/bookings', upload.single('photo'), [
+app.post('/api/bookings', verifyUser, upload.single('photo'), [
   body('name').isLength({ min: 2 }).withMessage('Name must be at least 2 characters'),
   body('email').isEmail().withMessage('Valid email is required'),
   body('address').isLength({ min: 10 }).withMessage('Address must be at least 10 characters'),
@@ -209,6 +254,7 @@ app.post('/api/bookings', upload.single('photo'), [
     const photoPath = req.file.filename;
 
     const bookingId = await db.createBooking({
+      user_id: req.user ? req.user.id : null,
       name,
       email,
       address,
@@ -225,6 +271,17 @@ app.post('/api/bookings', upload.single('photo'), [
     });
   } catch (error) {
     console.error('Booking creation error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get user's own bookings (requires user authentication)
+app.get('/api/user/bookings', requireUser, async (req, res) => {
+  try {
+    const bookings = await db.getBookingsByUserId(req.user.id);
+    res.json({ bookings });
+  } catch (error) {
+    console.error('Get user bookings error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

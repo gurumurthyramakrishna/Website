@@ -43,6 +43,16 @@
 </div>
 
 <script>
+    // Check if user is logged in and pre-fill form
+    document.addEventListener('DOMContentLoaded', function() {
+        const userData = localStorage.getItem('userData');
+        if (userData) {
+            const user = JSON.parse(userData);
+            document.getElementById("name").value = user.name || '';
+            document.getElementById("email").value = user.email || '';
+        }
+    });
+
     document.getElementById("bookingForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
@@ -69,8 +79,16 @@
       formData.append('photo', file);
 
       try {
+        // Add authorization header if user is logged in
+        const token = localStorage.getItem('userToken');
+        const headers = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
         const response = await fetch('/api/bookings', {
           method: 'POST',
+          headers: headers,
           body: formData
         });
 

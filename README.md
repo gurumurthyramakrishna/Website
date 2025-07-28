@@ -62,8 +62,9 @@ A comprehensive waste management system with booking functionality, admin panel,
 - `POST /api/users/login` - User login
 
 ### Bookings
-- `POST /api/bookings` - Create booking (with photo upload)
+- `POST /api/bookings` - Create booking (with photo upload, links to user if authenticated)
 - `GET /api/bookings` - Get all bookings (admin only)
+- `GET /api/user/bookings` - Get user's own bookings (user authentication required)
 - `PUT /api/bookings/:id/status` - Update booking status (admin only)
 
 ### Contact
@@ -88,6 +89,8 @@ A comprehensive waste management system with booking functionality, admin panel,
 ├── uploads/               # Photo uploads (auto-created)
 └── src/                   # Frontend files
     ├── index.html         # Homepage
+    ├── login.html         # User login
+    ├── dashboard.html     # User dashboard
     ├── booking.html       # Booking form
     ├── admin.html         # Admin panel
     ├── contact.html       # Contact form
@@ -99,9 +102,11 @@ A comprehensive waste management system with booking functionality, admin panel,
 
 ### For Users
 1. **Register**: Sign up with name, email, and password
-2. **Book Pickup**: Fill booking form with waste photo
-3. **Contact**: Send messages through contact form
-4. **View Pricing**: Check current rates for different waste types
+2. **Login**: Access account with email and password
+3. **Dashboard**: View personal bookings and account information
+4. **Book Pickup**: Fill booking form with waste photo (auto-fills if logged in)
+5. **Contact**: Send messages through contact form
+6. **View Pricing**: Check current rates for different waste types
 
 ### For Admins
 1. **Login**: Use admin credentials (default: `admin123`)
